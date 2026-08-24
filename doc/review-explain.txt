@@ -1,0 +1,80 @@
+*review-explain.txt*    On-demand, cached, per-function AI code explanations
+
+==============================================================================
+CONTENTS                                                *review-explain*
+
+    1. Introduction ......... |review-explain-introduction|
+    2. Setup ................ |review-explain-setup|
+    3. Usage ................ |review-explain-usage|
+    4. Configuration ........ |review-explain-configuration|
+    5. Lua API .............. |review-explain-api|
+
+==============================================================================
+1. Introduction                                    *review-explain-introduction*
+
+review-explain.nvim generates a short explanation for the function under
+your cursor or selection, on demand, via the real `claude` CLI in
+non-interactive print mode. Explanations are cached per function (keyed by
+name and content hash) in a git-trackable JSON file, and shown alongside
+normal LSP hover when you press |K|.
+
+No embedded AI session, no automatic diff summaries, no silent
+auto-refresh of a stale explanation -- every AI call is something you
+triggered yourself.
+
+==============================================================================
+2. Setup                                                  *review-explain-setup*
+
+With lazy.nvim: >lua
+    {
+      "shutouyusei/review-explain.nvim",
+      dependencies = { "nvim-treesitter/nvim-treesitter" },
+      opts = {},
+    }
+<
+`opts = {}` calls `require("review_explain").setup({})`. See
+|review-explain-configuration| for available options.
+
+==============================================================================
+3. Usage                                                  *review-explain-usage*
+
+<leader>ce      (visual mode) Explain the selected range. Notifies when the
+                request starts and when it finishes, or on error.
+
+K               (normal mode) Show LSP hover and any cached explanation for
+                the function under the cursor, combined into one floating
+                window. Falls back to plain hover if nothing is cached.
+
+Explained functions get a colored border (top/bottom, drawn as virtual
+lines so it never collides with LSP inlay hints) and a sign-column marker.
+Blue means the explanation matches the function's current content; orange
+means the function has changed since the explanation was written (the
+explanation is still shown -- it's not deleted -- just flagged).
+
+==============================================================================
+4. Configuration                                  *review-explain-configuration*
+
+See the README for the full list of `setup()` options (model, language,
+cache_dirname, keymaps, register_hover_keymap, excluded_filetypes) and
+their defaults, including the LazyVim + Snacks.nvim `register_hover_keymap`
+caveat.
+
+==============================================================================
+5. Lua API                                                  *review-explain-api*
+
+require("review_explain").setup({opts})
+                Configure and wire up keymaps/autocmds. See
+                |review-explain-configuration|.
+
+require("review_explain.generate").run({bufnr}, {start_lnum}, {end_lnum})
+                Explain the given 0-indexed, inclusive line range in
+                {bufnr}. This is what the `<leader>ce` mapping calls.
+
+require("review_explain.recall").show({bufnr})
+                Show hover + cached explanation for the function under the
+                cursor in {bufnr}. This is what the `K` mapping calls.
+
+require("review_explain.recall").highlight_buffer({bufnr})
+                Refresh the explained-function markers in {bufnr}.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
