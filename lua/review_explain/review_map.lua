@@ -103,6 +103,28 @@ function M.open(name)
 			{ buffer = qf_bufnr, desc = "Toggle checked for review item under cursor" }
 		)
 	end
+
+	M._last = { name = name, qf_bufnr = qf_bufnr }
+end
+
+---`:ReviewOpen <name>` again (or the `<leader>ro` keymap with no name):
+---close the review if it's currently open, otherwise open it.
+---@param name string|nil defaults to the most recently opened review
+function M.toggle(name)
+	name = name or (M._last and M._last.name)
+	if not name then
+		vim.notify("review-explain: no review to toggle; run :ReviewOpen <name> first", vim.log.levels.WARN)
+		return
+	end
+
+	if M._last and M._last.name == name and vim.api.nvim_buf_is_valid(M._last.qf_bufnr) then
+		vim.cmd("DiffviewClose")
+		vim.cmd("cclose")
+		M._last = nil
+		return
+	end
+
+	M.open(name)
 end
 
 return M

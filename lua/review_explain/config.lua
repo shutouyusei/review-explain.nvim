@@ -21,6 +21,11 @@ local M = {
 		-- :ReviewOpen call populates, that toggles `checked` on the review
 		-- item under the cursor. Set to false to not register it.
 		review_check = "<leader>cx",
+
+		-- Normal-mode mapping (global) that toggles the most recently
+		-- opened :ReviewOpen review closed/open. Set to false to not
+		-- register it.
+		review_toggle = "<leader>ro",
 	},
 
 	-- If true, review_explain registers its own buffer-local `K` mapping

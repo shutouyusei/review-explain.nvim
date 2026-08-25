@@ -57,6 +57,12 @@ function M.setup(opts)
 		desc = "Open a /review-handoff review map's diff (diffview.nvim) and quickfix list",
 	})
 
+	if config.keymaps.review_toggle then
+		vim.keymap.set("n", config.keymaps.review_toggle, function()
+			review_map.toggle()
+		end, { desc = "Toggle the most recently opened :ReviewOpen review" })
+	end
+
 	if config.keymaps.explain then
 		vim.keymap.set("x", config.keymaps.explain, function()
 			vim.cmd("normal! \27") -- exit visual mode so '< '> marks are set
