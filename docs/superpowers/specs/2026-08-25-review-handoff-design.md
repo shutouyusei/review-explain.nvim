@@ -1,7 +1,8 @@
 # review-handoff: fast pre-run review for AI-authored experiment code
 
 Status: design approved, spec written, not yet implemented.
-Date: 2026-08-25.
+Date: 2026-08-25. Revised 2026-08-25 (Stage A/B split, severity, batched
+explanation writes — see "Revision: cost-aware Stage A/B split" below).
 
 ## Problem
 
@@ -57,6 +58,49 @@ lets `base = merge-base(default, HEAD)` be computed fresh every time with no
 extra state: it always equals "the last point this branch was reviewed and
 merged," automatically, because merges never happen except right after a
 review passes.
+
+## Revision: cost-aware Stage A/B split
+
+The original Half 1 (below) always spawns one fresh-context agent that reads
+the full diff and full file contents, for every round. Two problems in
+practice: (1) a fresh agent has no access to the round's actual intent
+beyond what's stuffed into its prompt, so it can only catch surface-level
+doubts, not "this deviates from what was intended"; (2) every round pays the
+same fixed agent cost regardless of how small or clean it is.
+
+Revised split:
+
+- **Stage A (main session, no subagent call)**: the session that wrote the
+  round already has the intent loaded — primarily the branch's own commit
+  messages (`git log base..HEAD`), secondarily this session's conversation.
+  It traces each changed input→output path in **one pass**, producing
+  `doubts` (tagged `low`/`medium`/`high`) and `explanations` together — the
+  alignment check and the trace are the same read, not two passes. No
+  subagent is spawned for this; the intent is already in context, so a fresh
+  agent would only pay cost to rediscover what this session already knows.
+  Thin/absent commit messages that block intent-checking become a doubt
+  themselves (`kind: intent-unclear`), which forces better commit hygiene
+  over time rather than working around it.
+- **Stage B (fresh subagent, `high`-severity doubts only)**: this is the one
+  place freshness is actually load-bearing — a reader who does *not* know
+  the stated intent, so they can't rationalize away a real bug as "expected
+  because...". Scoped to just the flagged item and a tight excerpt, not the
+  full diff/files. Zero agent calls when Stage A finds no `high` doubts.
+- **Explanation writes are batched**: one `nvim --headless` invocation
+  writing all `explanations` in a Lua loop, not one process per entry.
+- **Trigger context generalized**: still invoked manually once a round is
+  ready, but "ready" means different things per branch kind — experiment
+  branches gate before running (correctness/reproducibility), development
+  branches gate before merging to main (after the code has actually been
+  exercised), since main must stay always-audited and the branch/main diff
+  is itself the merge justification. The command's mechanics don't change
+  between the two; only when a human chooses to invoke it does.
+
+The review-map schema gains a `severity` field (`low|medium|high`) and a
+`verified` field (`null` for un-escalated items, `true|false` for `high`
+items after Stage B). See the updated schema below. Half 2 (the plugin) is
+unaffected by this revision — `:ReviewOpen` and `<leader>cx` just carry the
+two new fields through unmodified.
 
 ## Two halves
 
@@ -193,17 +237,23 @@ visible is the point, not narrowing the list.
       "file": "experiments/usable-info-beta/run.py",
       "line": 88,
       "kind": "boundary",
+      "severity": "high",
       "note": "480x640 -> 240x320: crop or resize?",
       "check": "python experiments/usable-info-beta/run.py --dataset usb --inspect",
+      "verified": true,
       "checked": false
     }
   ]
 }
 ```
 
-- `kind` in `{boundary, align, control, split, cache, unit, other}` (open set —
-  `/review-handoff`'s reviewer agent is not restricted to only these, but should
+- `kind` in `{boundary, align, control, split, cache, unit, intent-unclear,
+  other}` (open set — Stage A is not restricted to only these, but should
   prefer one of them when it fits, for scannability).
+- `severity` in `{low, medium, high}`, assigned by Stage A. Only `high`
+  items go through Stage B.
+- `verified` is `null` for `low`/`medium` items (Stage B never ran) and
+  `true`/`false` for `high` items per Stage B's blind verdict.
 - `base` is recorded for provenance/debugging even though `:ReviewOpen` could
   in principle recompute `merge-base(main, HEAD)` itself — recording what was
   actually diffed at review time is more honest than trusting it stays
