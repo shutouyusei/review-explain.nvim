@@ -48,6 +48,14 @@ function M.setup(opts)
 
 	local generate = require("review_explain.generate")
 	local recall = require("review_explain.recall")
+	local review_map = require("review_explain.review_map")
+
+	vim.api.nvim_create_user_command("ReviewOpen", function(args)
+		review_map.open(args.args)
+	end, {
+		nargs = 1,
+		desc = "Open a /review-handoff review map's diff (diffview.nvim) and quickfix list",
+	})
 
 	if config.keymaps.explain then
 		vim.keymap.set("x", config.keymaps.explain, function()

@@ -16,6 +16,11 @@ local M = {
 		-- Visual-mode mapping that explains the selected range. Set to
 		-- false to not register it.
 		explain = "<leader>ce",
+
+		-- Normal-mode mapping, registered only in the quickfix buffer a
+		-- :ReviewOpen call populates, that toggles `checked` on the review
+		-- item under the cursor. Set to false to not register it.
+		review_check = "<leader>cx",
 	},
 
 	-- If true, review_explain registers its own buffer-local `K` mapping
