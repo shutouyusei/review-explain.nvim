@@ -107,7 +107,7 @@ function M.open(name)
 	M._last = { name = name, qf_bufnr = qf_bufnr }
 end
 
----`:ReviewOpen <name>` again (or the `<leader>co` keymap with no name):
+---`:ReviewOpen <name>` again (or the `<leader>ao` keymap with no name):
 ---close the review if it's currently open, otherwise open it.
 ---@param name string|nil defaults to the most recently opened review
 function M.toggle(name)
