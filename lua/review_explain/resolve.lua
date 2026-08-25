@@ -207,4 +207,27 @@ function M.hash_node(bufnr, node)
 	return vim.fn.sha256(text)
 end
 
+---Check whether the LLM-reported name and the treesitter-resolved name
+---plausibly refer to the same function, tolerating a qualified name on
+---either side (e.g. entry_name="M.foo" vs found_name="foo").
+---@param entry_name string
+---@param found_name string
+---@return boolean
+function M.names_corroborate(entry_name, found_name)
+	if entry_name == found_name then
+		return true
+	end
+	if entry_name:sub(-(#found_name + 1)) == "." .. found_name
+		or entry_name:sub(-(#found_name + 1)) == ":" .. found_name
+	then
+		return true
+	end
+	if found_name:sub(-(#entry_name + 1)) == "." .. entry_name
+		or found_name:sub(-(#entry_name + 1)) == ":" .. entry_name
+	then
+		return true
+	end
+	return false
+end
+
 return M

@@ -64,29 +64,6 @@ function M.run(bufnr, start_lnum, end_lnum)
 			return
 		end
 
-		---Check whether the LLM-reported name and the treesitter-resolved name
-		---plausibly refer to the same function, tolerating a qualified name on
-		---either side (e.g. entry.name="M.foo" vs found.name="foo").
-		---@param entry_name string
-		---@param found_name string
-		---@return boolean
-		local function names_corroborate(entry_name, found_name)
-			if entry_name == found_name then
-				return true
-			end
-			if entry_name:sub(-(#found_name + 1)) == "." .. found_name
-				or entry_name:sub(-(#found_name + 1)) == ":" .. found_name
-			then
-				return true
-			end
-			if found_name:sub(-(#entry_name + 1)) == "." .. entry_name
-				or found_name:sub(-(#entry_name + 1)) == ":" .. entry_name
-			then
-				return true
-			end
-			return false
-		end
-
 		local body_hashes = {}
 		local resolved_entries = {}
 		local unresolved_count = 0
@@ -95,7 +72,7 @@ function M.run(bufnr, start_lnum, end_lnum)
 			-- to an absolute 0-indexed buffer line to search from.
 			local abs_lnum = start_lnum + entry.start_line - 1
 			local found = resolve.find_enclosing_function(bufnr, abs_lnum)
-			if found and names_corroborate(entry.name, found.name) then
+			if found and resolve.names_corroborate(entry.name, found.name) then
 				-- Key everything by resolve's canonical (treesitter-resolved) name,
 				-- never by whatever name the LLM reported, so cache.merge and
 				-- recall.show (which also keys by resolve's name) agree.
