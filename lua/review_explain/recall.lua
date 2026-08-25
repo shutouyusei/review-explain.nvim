@@ -22,7 +22,7 @@ end
 ---disappearing the moment the function is edited.
 ---@param bufnr integer
 ---@param found {name:string, node:userdata}
----@return {explanation:string, stale:boolean}|nil
+---@return {explanation:string|nil, summary:string|nil, highlights:table[]|nil, stale:boolean}|nil
 local function find_best_revision(bufnr, found)
 	local entries = cache.read(cache_path_for_buffer(bufnr))
 	local revisions = entries[found.name]
@@ -30,17 +30,57 @@ local function find_best_revision(bufnr, found)
 		return nil
 	end
 
+	local function pluck(revision, stale)
+		return {
+			explanation = revision.explanation,
+			summary = revision.summary,
+			highlights = revision.highlights,
+			stale = stale,
+		}
+	end
+
 	local current_hash = resolve.hash_node(bufnr, found.node)
 	for _, revision in ipairs(revisions) do
 		if revision.body_hash == current_hash then
-			return { explanation = revision.explanation, stale = false }
+			return pluck(revision, false)
 		end
 	end
 
 	-- No exact match: revisions are stored most-recent-first (cache.merge),
 	-- so [1] is the closest thing we have.
-	return { explanation = revisions[1].explanation, stale = true }
+	return pluck(revisions[1], true)
 end
+
+---Render a cached explanation as markdown lines. Handles both the newer
+---summary/highlights shape and the legacy plain `explanation` string, so a
+---mixed-age cache displays sensibly either way.
+---@param best {explanation:string|nil, summary:string|nil, highlights:table[]|nil, stale:boolean}
+---@return string[]
+local function format_explanation(best)
+	local lines = {}
+	if best.stale then
+		table.insert(lines, "**AI explanation** _(⚠️ code changed since this was written)_")
+	else
+		table.insert(lines, "**AI explanation**")
+	end
+	table.insert(lines, "")
+
+	if best.summary then
+		vim.list_extend(lines, vim.split(best.summary, "\n"))
+		if best.highlights and #best.highlights > 0 then
+			table.insert(lines, "")
+			table.insert(lines, "**Inside this function:**")
+			for _, h in ipairs(best.highlights) do
+				table.insert(lines, string.format("- **%s** — %s", h.about, h.note))
+			end
+		end
+	elseif best.explanation then
+		vim.list_extend(lines, vim.split(best.explanation, "\n"))
+	end
+
+	return lines
+end
+M._format_explanation = format_explanation
 
 ---Request LSP hover for the cursor position and return its markdown lines.
 ---Calls back with an empty table if there's no LSP client or no hover info.
@@ -81,13 +121,9 @@ function M.show(bufnr)
 		if best then
 			if #lines > 0 then
 				table.insert(lines, "---")
+				table.insert(lines, "")
 			end
-			if best.stale then
-				table.insert(lines, "**AI explanation (⚠️ code changed since this was written):**")
-			else
-				table.insert(lines, "**AI explanation:**")
-			end
-			vim.list_extend(lines, vim.split(best.explanation, "\n"))
+			vim.list_extend(lines, format_explanation(best))
 		end
 
 		if #lines == 0 then

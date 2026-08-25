@@ -7,8 +7,29 @@ function M.extract_fenced_block(text)
 	return text:match("```[%w]*\n(.-)\n```")
 end
 
-local REQUIRED_FIELDS = { "name", "start_line", "end_line", "explanation" }
+local REQUIRED_FIELDS = { "name", "start_line", "end_line" }
 
+---@param highlights any
+---@return boolean
+local function is_valid_highlights(highlights)
+	if highlights == nil then
+		return true
+	end
+	if type(highlights) ~= "table" then
+		return false
+	end
+	for _, h in ipairs(highlights) do
+		if type(h) ~= "table" or type(h.about) ~= "string" or type(h.note) ~= "string" then
+			return false
+		end
+	end
+	return true
+end
+
+---An entry is valid with either the legacy `explanation` string field, or
+---the newer `summary` string field (optionally paired with `highlights`,
+---an array of {about, note} internal-block notes). Both shapes may coexist
+---in an old cache, so recall.lua must handle either at display time.
 ---@param entry table
 ---@return boolean
 local function is_valid_entry(entry)
@@ -20,10 +41,15 @@ local function is_valid_entry(entry)
 			return false
 		end
 	end
-	return type(entry.name) == "string"
-		and type(entry.start_line) == "number"
-		and type(entry.end_line) == "number"
-		and type(entry.explanation) == "string"
+	if type(entry.name) ~= "string" or type(entry.start_line) ~= "number" or type(entry.end_line) ~= "number" then
+		return false
+	end
+	local has_explanation = type(entry.explanation) == "string"
+	local has_summary = type(entry.summary) == "string"
+	if not (has_explanation or has_summary) then
+		return false
+	end
+	return is_valid_highlights(entry.highlights)
 end
 
 ---Parse the full stdout of `claude -p ... --output-format json`.

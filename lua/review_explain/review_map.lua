@@ -1,5 +1,6 @@
 local cache = require("review_explain.cache")
 local config = require("review_explain.config")
+local display = require("review_explain.display")
 
 local M = {}
 
@@ -9,6 +10,23 @@ local function format_item_text(item)
 	local prefix = item.checked and "[x] " or "[ ] "
 	return prefix .. item.kind .. ": " .. item.note .. " -- check: " .. item.check
 end
+
+---Build the markdown lines shown in the CursorHold popup for one review
+---item -- the full note/check text that the single-line quickfix entry
+---(format_item_text) truncates for width.
+---@param item table one review-map item ({kind, note, check, checked, ...})
+---@return string[]
+local function format_item_detail(item)
+	local status = item.checked and "✅ checked" or "⬜ unchecked"
+	return {
+		string.format("**%s** _(%s)_", item.kind, status),
+		"",
+		item.note,
+		"",
+		"**check:** " .. item.check,
+	}
+end
+M._format_item_detail = format_item_detail
 
 ---Build the quickfix-list entries for a review map, one per item, in order.
 ---@param root string absolute project root, items' `file` paths are relative to this
@@ -69,6 +87,43 @@ function M.toggle_checked_at_cursor()
 	end
 end
 
+---Wire up a CursorHold popup in a quickfix buffer showing the review item
+---under the cursor's full note/check text, since the single-line quickfix
+---entry truncates it. Closes on cursor move / leaving the buffer so it
+---never lingers over a different item.
+---@param qf_bufnr integer
+---@param map table decoded review map ({items, ...})
+local function attach_item_popup(qf_bufnr, map)
+	local group = vim.api.nvim_create_augroup("review_explain_qf_popup_" .. qf_bufnr, { clear = true })
+	local popup_winnr = nil
+
+	local function close_popup()
+		if popup_winnr and vim.api.nvim_win_is_valid(popup_winnr) then
+			vim.api.nvim_win_close(popup_winnr, true)
+		end
+		popup_winnr = nil
+	end
+
+	vim.api.nvim_create_autocmd("CursorHold", {
+		group = group,
+		buffer = qf_bufnr,
+		callback = function()
+			local item = map.items[vim.fn.line(".")]
+			if not item then
+				return
+			end
+			local _, winnr = display.show(format_item_detail(item))
+			popup_winnr = winnr
+		end,
+	})
+
+	vim.api.nvim_create_autocmd({ "CursorMoved", "BufLeave", "WinLeave" }, {
+		group = group,
+		buffer = qf_bufnr,
+		callback = close_popup,
+	})
+end
+
 ---`:ReviewOpen <name>`: open the diff against the review map's recorded
 ---base in diffview.nvim, and populate the quickfix list with its items so
 ---`]q` / `[q` navigation is immediate.
@@ -95,6 +150,7 @@ function M.open(name)
 
 	local qf_bufnr = vim.api.nvim_get_current_buf()
 	vim.b[qf_bufnr].review_explain_map_path = map_path
+	attach_item_popup(qf_bufnr, map)
 	if config.keymaps.review_check then
 		vim.keymap.set(
 			"n",

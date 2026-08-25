@@ -82,6 +82,8 @@ function M.run(bufnr, start_lnum, end_lnum)
 					start_line = found.start_line,
 					end_line = found.end_line,
 					explanation = entry.explanation,
+					summary = entry.summary,
+					highlights = entry.highlights,
 				})
 				vim.api.nvim_buf_set_extmark(bufnr, ns, found.start_line - 1, 0, {
 					end_row = found.end_line - 1,

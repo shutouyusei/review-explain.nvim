@@ -156,3 +156,22 @@ describe("review_explain.review_map.open", function()
     assert.is_true(ok)
   end)
 end)
+
+describe("review_explain.review_map._format_item_detail", function()
+  it("renders kind, checked status, note, and check as markdown lines", function()
+    local lines = review_map._format_item_detail(sample_map().items[1])
+    local text = table.concat(lines, "\n")
+    assert.truthy(text:find("boundary", 1, true))
+    assert.truthy(text:find("unchecked", 1, true))
+    assert.truthy(text:find("480x640 -> 240x320: crop or resize?", 1, true))
+    assert.truthy(text:find("**check:** python src/run.py --inspect", 1, true))
+  end)
+
+  it("shows checked status when the item is checked", function()
+    local item = sample_map().items[1]
+    item.checked = true
+    local text = table.concat(review_map._format_item_detail(item), "\n")
+    assert.truthy(text:find("checked", 1, true))
+    assert.falsy(text:find("unchecked", 1, true))
+  end)
+end)
