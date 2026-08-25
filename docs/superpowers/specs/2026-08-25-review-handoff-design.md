@@ -4,6 +4,7 @@ Status: design approved, spec written, not yet implemented.
 Date: 2026-08-25. Revised 2026-08-25 (Stage A/B split, severity, batched
 explanation writes — see "Revision: cost-aware Stage A/B split" below).
 
+
 ## Problem
 
 Reviewing AI-authored research code commit-by-commit is slower than the AI that
@@ -101,6 +102,7 @@ The review-map schema gains a `severity` field (`low|medium|high`) and a
 items after Stage B). See the updated schema below. Half 2 (the plugin) is
 unaffected by this revision — `:ReviewOpen` and `<leader>cx` just carry the
 two new fields through unmodified.
+
 
 ## Two halves
 
@@ -241,6 +243,7 @@ visible is the point, not narrowing the list.
       "note": "480x640 -> 240x320: crop or resize?",
       "check": "python experiments/usable-info-beta/run.py --dataset usb --inspect",
       "verified": true,
+
       "checked": false
     }
   ]
@@ -254,6 +257,7 @@ visible is the point, not narrowing the list.
   items go through Stage B.
 - `verified` is `null` for `low`/`medium` items (Stage B never ran) and
   `true`/`false` for `high` items per Stage B's blind verdict.
+
 - `base` is recorded for provenance/debugging even though `:ReviewOpen` could
   in principle recompute `merge-base(main, HEAD)` itself — recording what was
   actually diffed at review time is more honest than trusting it stays
