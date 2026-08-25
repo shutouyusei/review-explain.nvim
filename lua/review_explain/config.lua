@@ -25,7 +25,7 @@ local M = {
 		-- Normal-mode mapping (global) that toggles the most recently
 		-- opened :ReviewOpen review closed/open. Set to false to not
 		-- register it.
-		review_toggle = "<leader>ro",
+		review_toggle = "<leader>co",
 	},
 
 	-- If true, review_explain registers its own buffer-local `K` mapping
