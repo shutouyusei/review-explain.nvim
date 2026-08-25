@@ -6,8 +6,9 @@ CONTENTS                                                *review-explain*
     1. Introduction ......... |review-explain-introduction|
     2. Setup ................ |review-explain-setup|
     3. Usage ................ |review-explain-usage|
-    4. Configuration ........ |review-explain-configuration|
-    5. Lua API .............. |review-explain-api|
+    4. Review handoff ....... |review-explain-review-handoff|
+    5. Configuration ........ |review-explain-configuration|
+    6. Lua API .............. |review-explain-api|
 
 ==============================================================================
 1. Introduction                                    *review-explain-introduction*
@@ -52,7 +53,26 @@ means the function has changed since the explanation was written (the
 explanation is still shown -- it's not deleted -- just flagged).
 
 ==============================================================================
-4. Configuration                                  *review-explain-configuration*
+4. Review handoff                              *review-explain-review-handoff*
+
+:ReviewOpen {name}                                              *:ReviewOpen*
+                Read `.nvim-review/reviews/{name}.json` (a review map,
+                written by the companion `/review-handoff` Claude Code
+                slash command -- not part of this plugin), open the diff
+                against its recorded `base` commit in diffview.nvim, and
+                populate the quickfix list with one entry per doubt item
+                so |]q| / |[q| navigation is immediate.
+
+<leader>cx      (normal mode, only in a quickfix buffer :ReviewOpen
+                populated) Toggle `checked` on the review item under the
+                cursor and persist it back to the JSON file immediately.
+                The item stays in the list either way -- a visible trail
+                of what's been confirmed, not a shrinking list.
+
+See the README's "Review handoff" section for the review-map JSON format.
+
+==============================================================================
+5. Configuration                                  *review-explain-configuration*
 
 See the README for the full list of `setup()` options (model, language,
 cache_dirname, keymaps, register_hover_keymap, excluded_filetypes) and
@@ -60,7 +80,7 @@ their defaults, including the LazyVim + Snacks.nvim `register_hover_keymap`
 caveat.
 
 ==============================================================================
-5. Lua API                                                  *review-explain-api*
+6. Lua API                                                  *review-explain-api*
 
 require("review_explain").setup({opts})
                 Configure and wire up keymaps/autocmds. See
@@ -76,5 +96,20 @@ require("review_explain.recall").show({bufnr})
 
 require("review_explain.recall").highlight_buffer({bufnr})
                 Refresh the explained-function markers in {bufnr}.
+
+require("review_explain.cache_api").write({filepath}, {name}, {explanation})
+                Write an explanation into the same cache format
+                `generate.lua` produces, without going through `claude -p`
+                -- the explanation text is supplied by the caller. Meant
+                to be called headlessly, e.g.: >sh
+                    nvim --headless \
+                      -c "lua require('review_explain.cache_api').write([[<file>]], [[<name>]], [[<explanation>]])" \
+                      -c "qa"
+<
+                Returns `true` on success, or `false, err` if no function
+                matching {name} was found in {filepath}.
+
+require("review_explain.review_map").open({name})
+                What `:ReviewOpen` calls.
 
 vim:tw=78:ts=8:noet:ft=help:norl:

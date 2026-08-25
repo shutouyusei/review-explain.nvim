@@ -203,6 +203,8 @@ function M.merge(path, new_entries, body_hashes)
 				revision.start_line = entry.start_line
 				revision.end_line = entry.end_line
 				revision.explanation = entry.explanation
+				revision.summary = entry.summary
+				revision.highlights = entry.highlights
 				revision.generated_at = now
 				matched = true
 				break
@@ -215,6 +217,8 @@ function M.merge(path, new_entries, body_hashes)
 				end_line = entry.end_line,
 				body_hash = hash,
 				explanation = entry.explanation,
+				summary = entry.summary,
+				highlights = entry.highlights,
 				generated_at = now,
 			})
 		end

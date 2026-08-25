@@ -1,6 +1,7 @@
--- Test harness bootstrap. Requires plenary.nvim and nvim-treesitter to
--- already be installed via your plugin manager (this only adds them to
--- the runtimepath for the test run, it doesn't install anything).
+-- Test harness bootstrap. Requires plenary.nvim, nvim-treesitter, and
+-- diffview.nvim to already be installed via your plugin manager (this
+-- only adds them to the runtimepath for the test run, it doesn't install
+-- anything).
 local function find_plugin_dir(name)
 	local candidates = {
 		vim.fn.stdpath("data") .. "/lazy/" .. name,
@@ -23,6 +24,7 @@ end
 
 vim.opt.rtp:append(find_plugin_dir("plenary.nvim"))
 vim.opt.rtp:append(find_plugin_dir("nvim-treesitter"))
+vim.opt.rtp:append(find_plugin_dir("diffview.nvim"))
 -- Prepend (not append): Neovim's default runtimepath already includes
 -- stdpath("config") (~/.config/nvim), which may itself contain a
 -- lua/review_explain/ (e.g. this plugin embedded in a dotfiles repo,

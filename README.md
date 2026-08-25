@@ -14,6 +14,7 @@ review-explain.nvim does exactly that and nothing more:
 - Press `K` on an explained function and the explanation shows up alongside normal LSP hover — one floating window, not two competing ones.
 - If the function's content changes after it was explained, the old explanation is still shown (it doesn't just vanish — it's still a useful starting point) but clearly flagged as possibly outdated, both in the hover window and the marker color.
 - Works the same way inside [diffview.nvim](https://github.com/sindrets/diffview.nvim) panes as it does on the real file — explanations generated in either place are visible in both.
+- `:ReviewOpen <name>` opens a review map written by `/review-handoff` (a companion Claude Code slash command, not part of this plugin) as a diffview.nvim diff plus a jumpable quickfix list of "things worth doubting" — see [Review handoff](#review-handoff) below.
 
 ## Non-goals
 
@@ -26,6 +27,7 @@ review-explain.nvim does exactly that and nothing more:
 - Neovim >= 0.10 (uses `vim.system`, `vim.fs.root`)
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) with parsers for the languages you want to explain
 - The [`claude` CLI](https://claude.com/claude-code) installed and logged in
+- [diffview.nvim](https://github.com/sindrets/diffview.nvim), only if you use `:ReviewOpen`
 
 ## Installation
 
@@ -43,12 +45,64 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ## Usage
 
-| Mapping | Mode | Action |
+| Mapping / Command | Mode | Action |
 |---|---|---|
 | `<leader>ce` | visual | Explain the selected range |
 | `K` | normal | Show LSP hover + cached explanation for the function under the cursor (if any) |
+| `:ReviewOpen <name>` | command | Open a review map (see below) as a diffview.nvim diff + quickfix list |
+| `<leader>cx` | normal, in a `:ReviewOpen` quickfix list only | Toggle `checked` on the review item under the cursor |
 
 That's the whole surface. Everything else — caching, staleness detection, the diffview bridge — happens automatically.
+
+## Review handoff
+
+`:ReviewOpen <name>` reads `.nvim-review/reviews/<name>.json` — a **review
+map**: a list of specific things worth doubting in a diff (a possible
+crop-vs-resize mixup, a cache key that might be missing a field, a train/test
+split that might leak), each with a `file`/`line` and a one-line `check` you
+can run or look at. It's written by `/review-handoff`, a companion Claude
+Code slash command (lives outside this plugin, in your global Claude Code
+tooling) that spawns a fresh-context review agent over `git diff
+merge-base(main, HEAD)` before you run AI-authored experiment code, instead
+of after.
+
+`:ReviewOpen <name>` opens the diff in diffview.nvim against the map's
+recorded base commit and populates the quickfix list with one entry per
+doubt item. `<leader>cx` on an item marks it checked (writes back to the
+JSON file immediately) without removing it from the list — a visible trail
+of what's been confirmed, not a shrinking list. `K` continues to work as
+usual inside the diffview panes, including any explanations
+`/review-handoff` pre-attached for complex-but-not-doubtful functions via
+`review_explain.cache_api` (the same cache format and lookup `generate.lua`
+and `recall.lua` already use — no separate store).
+
+This plugin only renders the review map; it doesn't decide what goes in
+one. Reading `.nvim-review/reviews/<name>.json` by hand (or asking your
+Claude Code session) works too — the format is:
+
+```json
+{
+  "name": "usable-info-fullframe",
+  "base": "57ca4b0",
+  "created": "2026-08-25T14:00:00Z",
+  "items": [
+    {
+      "file": "experiments/usable-info-beta/run.py",
+      "line": 88,
+      "kind": "boundary",
+      "note": "480x640 -> 240x320: crop or resize?",
+      "check": "python experiments/usable-info-beta/run.py --dataset usb --inspect",
+      "checked": false
+    }
+  ]
+}
+```
+
+`kind` is an open set (`boundary`, `align`, `control`, `split`, `cache`,
+`unit`, `other` are the ones `/review-handoff` prefers, for scannability,
+but nothing enforces it). `base` is recorded at review time rather than
+recomputed, since branch history could move between review and later
+reading.
 
 ## Configuration
 
@@ -56,8 +110,9 @@ Defaults, shown with `opts = {}`:
 
 ```lua
 {
-  -- Model passed to `claude -p --model <model>`. nil = claude's own default.
-  model = nil,
+  -- Model passed to `claude -p --model <model>` (an alias like "sonnet",
+  -- "opus", "haiku", or a full model id). nil = claude's own default.
+  model = "sonnet",
 
   -- Cache directory, relative to the resolved project root. Commit this.
   cache_dirname = ".nvim-review",
@@ -68,6 +123,7 @@ Defaults, shown with `opts = {}`:
 
   keymaps = {
     explain = "<leader>ce", -- set to false to not register it
+    review_check = "<leader>cx", -- set to false to not register it
   },
 
   -- Whether review_explain registers its own K mapping. See "LazyVim +
