@@ -107,13 +107,28 @@ function M.open(name)
 	M._last = { name = name, qf_bufnr = qf_bufnr }
 end
 
+---The review map name /review-handoff derives for the current branch:
+---the branch name itself, with `/` replaced by `-` (see its "Derive the
+---review map name" step).
+---@return string|nil nil if the current directory isn't inside a git repo
+---  with a checked-out branch (e.g. detached HEAD)
+local function branch_review_name()
+	local branch = vim.fn.systemlist("git rev-parse --abbrev-ref HEAD")[1]
+	if vim.v.shell_error ~= 0 or not branch or branch == "" or branch == "HEAD" then
+		return nil
+	end
+	return (branch:gsub("/", "-"))
+end
+
 ---`:ReviewOpen <name>` again (or the `<leader>ao` keymap with no name):
----close the review if it's currently open, otherwise open it.
----@param name string|nil defaults to the most recently opened review
+---close the review if it's currently open, otherwise open it. With no
+---name, defaults to the most recently opened review, falling back to the
+---current git branch's review map name.
+---@param name string|nil
 function M.toggle(name)
-	name = name or (M._last and M._last.name)
+	name = name or (M._last and M._last.name) or branch_review_name()
 	if not name then
-		vim.notify("review-explain: no review to toggle; run :ReviewOpen <name> first", vim.log.levels.WARN)
+		vim.notify("review-explain: could not determine a review name (not on a git branch?)", vim.log.levels.WARN)
 		return
 	end
 
