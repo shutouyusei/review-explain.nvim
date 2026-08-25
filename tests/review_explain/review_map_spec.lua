@@ -38,13 +38,13 @@ local function sample_map()
 end
 
 describe("review_explain.review_map.build_qf_items", function()
-  it("builds one quickfix entry per item, filename rooted, text carrying kind/note/check", function()
+  it("builds one quickfix entry per item, filename rooted, text carrying kind/note summary", function()
     local qf_items = review_map.build_qf_items("/proj", sample_map())
     assert.equal(2, #qf_items)
     assert.equal("/proj/src/run.py", qf_items[1].filename)
     assert.equal(88, qf_items[1].lnum)
     assert.equal(
-      "[ ] boundary: 480x640 -> 240x320: crop or resize? -- check: python src/run.py --inspect",
+      "[ ] boundary: 480x640 -> 240x320: crop or resize?",
       qf_items[1].text
     )
   end)
@@ -52,9 +52,25 @@ describe("review_explain.review_map.build_qf_items", function()
   it("prefixes an already-checked item's text with [x] instead of dropping it from the list", function()
     local qf_items = review_map.build_qf_items("/proj", sample_map())
     assert.equal(
-      "[x] cache: cache key omits dataset version -- check: grep cache_key src/run.py",
+      "[x] cache: cache key omits dataset version",
       qf_items[2].text
     )
+  end)
+
+  it("truncates a long note with an ellipsis, leaving the check for the detail popup", function()
+    local map = sample_map()
+    map.items[1].note = string.rep("x", 100)
+    local qf_items = review_map.build_qf_items("/proj", map)
+    assert.equal("[ ] boundary: " .. string.rep("x", 60) .. "…", qf_items[1].text)
+  end)
+
+  it("truncates a long multibyte note without splitting a character mid-byte", function()
+    local map = sample_map()
+    -- 40 double-width Japanese chars = display width 80, over the 60 cap.
+    map.items[1].note = string.rep("あ", 40)
+    local qf_items = review_map.build_qf_items("/proj", map)
+    -- 30 double-width chars = width 60, the most that fits.
+    assert.equal("[ ] boundary: " .. string.rep("あ", 30) .. "…", qf_items[1].text)
   end)
 end)
 

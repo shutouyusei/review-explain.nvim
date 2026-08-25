@@ -27,11 +27,13 @@ local function apply_highlights()
 		vim.api.nvim_set_hl(0, "ReviewExplainStale", { bg = "#ffe3b3" })
 		vim.api.nvim_set_hl(0, "ReviewExplainExplainedSign", { fg = "#1a3a6b" })
 		vim.api.nvim_set_hl(0, "ReviewExplainStaleSign", { fg = "#6b4a1a" })
+		vim.api.nvim_set_hl(0, "ReviewExplainHighlightBox", { fg = "#7a4fb5" })
 	else
 		vim.api.nvim_set_hl(0, "ReviewExplainExplained", { bg = "#2d3f6b" })
 		vim.api.nvim_set_hl(0, "ReviewExplainStale", { bg = "#6b4a1a" })
 		vim.api.nvim_set_hl(0, "ReviewExplainExplainedSign", { fg = "#bcd4ff" })
 		vim.api.nvim_set_hl(0, "ReviewExplainStaleSign", { fg = "#ffd699" })
+		vim.api.nvim_set_hl(0, "ReviewExplainHighlightBox", { fg = "#c9a6ff" })
 	end
 end
 
@@ -83,6 +85,10 @@ function M.setup(opts)
 				vim.keymap.set("n", "K", function()
 					recall.show(args.buf)
 				end, { buffer = args.buf, desc = "Hover / cached explanation" })
+			end
+
+			if config.disable_folding then
+				vim.wo.foldenable = false
 			end
 
 			recall.highlight_buffer(args.buf)

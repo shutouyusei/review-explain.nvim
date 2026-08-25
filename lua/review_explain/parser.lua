@@ -19,7 +19,13 @@ local function is_valid_highlights(highlights)
 		return false
 	end
 	for _, h in ipairs(highlights) do
-		if type(h) ~= "table" or type(h.about) ~= "string" or type(h.note) ~= "string" then
+		if
+			type(h) ~= "table"
+			or type(h.about) ~= "string"
+			or type(h.note) ~= "string"
+			or type(h.start_line) ~= "number"
+			or type(h.end_line) ~= "number"
+		then
 			return false
 		end
 	end

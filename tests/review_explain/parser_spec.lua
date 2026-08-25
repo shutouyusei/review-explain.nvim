@@ -63,7 +63,8 @@ describe("review_explain.parser.parse_cli_output", function()
     local envelope = vim.json.encode({
       is_error = false,
       result = '```json\n[{"name":"foo","start_line":1,"end_line":3,'
-        .. '"summary":"does a thing","highlights":[{"about":"validation","note":"checks input"}]}]\n```',
+        .. '"summary":"does a thing","highlights":[{"about":"validation","note":"checks input",'
+        .. '"start_line":2,"end_line":2}]}]\n```',
     })
     local entries, err = parser.parse_cli_output(envelope)
     assert.is_nil(err)
@@ -71,6 +72,8 @@ describe("review_explain.parser.parse_cli_output", function()
     assert.equal("does a thing", entries[1].summary)
     assert.equal("validation", entries[1].highlights[1].about)
     assert.equal("checks input", entries[1].highlights[1].note)
+    assert.equal(2, entries[1].highlights[1].start_line)
+    assert.equal(2, entries[1].highlights[1].end_line)
   end)
 
   it("returns an error when neither explanation nor summary is present", function()

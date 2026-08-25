@@ -38,7 +38,7 @@ function M.run(bufnr, start_lnum, end_lnum)
 
 	in_flight[bufnr] = true
 	client.run({
-		system_prompt = prompt.build_system_prompt(config.language),
+		system_prompt = prompt.build_system_prompt(config.language, config.long_function_lines),
 		user_message = prompt.build_user_message(code, filepath, filetype),
 		model = config.model,
 	}, function(ok, stdout_or_err)
@@ -77,13 +77,41 @@ function M.run(bufnr, start_lnum, end_lnum)
 				-- never by whatever name the LLM reported, so cache.merge and
 				-- recall.show (which also keys by resolve's name) agree.
 				body_hashes[found.name] = resolve.hash_node(bufnr, found.node)
+
+				-- Highlight line ranges arrive snippet-relative (1-indexed),
+				-- same as entry.start_line/end_line above; translate to
+				-- absolute 1-indexed buffer lines -- matching found.start_line/
+				-- end_line's convention (resolve.lua, and what recall.lua
+				-- expects) -- and clamp to the enclosing function so a
+				-- slightly-off LLM range can't draw a nested box outside it.
+				-- NOTE: this is `start_lnum + h.start_line`, not `... - 1`:
+				-- that `-1` is what makes `abs_lnum` above 0-indexed (for
+				-- find_enclosing_function); dropping it here is what keeps
+				-- highlight lines 1-indexed like found.start_line.
+				local highlights = nil
+				if entry.highlights then
+					highlights = {}
+					for _, h in ipairs(entry.highlights) do
+						local h_start = start_lnum + h.start_line
+						local h_end = start_lnum + h.end_line
+						h_start = math.max(h_start, found.start_line)
+						h_end = math.min(math.max(h_end, h_start), found.end_line)
+						table.insert(highlights, {
+							about = h.about,
+							note = h.note,
+							start_line = h_start,
+							end_line = h_end,
+						})
+					end
+				end
+
 				table.insert(resolved_entries, {
 					name = found.name,
 					start_line = found.start_line,
 					end_line = found.end_line,
 					explanation = entry.explanation,
 					summary = entry.summary,
-					highlights = entry.highlights,
+					highlights = highlights,
 				})
 				vim.api.nvim_buf_set_extmark(bufnr, ns, found.start_line - 1, 0, {
 					end_row = found.end_line - 1,

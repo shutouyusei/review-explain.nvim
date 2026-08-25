@@ -4,11 +4,40 @@ local display = require("review_explain.display")
 
 local M = {}
 
+---Max length of the note shown in a single quickfix line before it's
+---truncated with an ellipsis; the full text is available in the
+---CursorHold popup (format_item_detail).
+local QF_NOTE_SUMMARY_LEN = 60
+
+---@param note string
+---@return string
+local function summarize_note(note)
+	local first_line = note:match("^[^\n]*") or note
+	-- Truncate by display width via strcharpart, not byte count via
+	-- string.sub/#: the latter can split a multibyte UTF-8 character (e.g.
+	-- Japanese text) mid-byte, corrupting the quickfix line.
+	if vim.fn.strdisplaywidth(first_line) <= QF_NOTE_SUMMARY_LEN then
+		return first_line
+	end
+
+	local nchars = vim.fn.strchars(first_line)
+	local lo, hi = 0, nchars
+	while lo < hi do
+		local mid = math.ceil((lo + hi) / 2)
+		if vim.fn.strdisplaywidth(vim.fn.strcharpart(first_line, 0, mid)) <= QF_NOTE_SUMMARY_LEN then
+			lo = mid
+		else
+			hi = mid - 1
+		end
+	end
+	return vim.fn.strcharpart(first_line, 0, lo) .. "…"
+end
+
 ---@param item table one review-map item ({kind, note, check, checked, ...})
 ---@return string
 local function format_item_text(item)
 	local prefix = item.checked and "[x] " or "[ ] "
-	return prefix .. item.kind .. ": " .. item.note .. " -- check: " .. item.check
+	return prefix .. item.kind .. ": " .. summarize_note(item.note)
 end
 
 ---Build the markdown lines shown in the CursorHold popup for one review
@@ -124,6 +153,52 @@ local function attach_item_popup(qf_bufnr, map)
 	})
 end
 
+---Keep diffview.nvim's diff pair in sync when the user jumps to a review
+---item's file from the quickfix list (`<CR>`, `]q`/`[q`, `gf`, ...): a
+---plain quickfix jump only replaces the buffer in whichever diff pane last
+---had focus, so the *other* pane (and diffview's file panel) is left
+---showing the previous file's diff. Watching for the resulting BufWinEnter
+---and re-selecting the file through diffview's own API keeps both panes
+---paired correctly.
+---@param root string absolute project root, matched against entered buffers
+local function attach_diffview_sync(root)
+	local group = vim.api.nvim_create_augroup("review_explain_diffview_sync", { clear = true })
+	local prefix = root .. "/"
+	local syncing = false
+
+	vim.api.nvim_create_autocmd("BufWinEnter", {
+		group = group,
+		callback = function(args)
+			if syncing or vim.bo[args.buf].buftype ~= "" then
+				return
+			end
+
+			local name = vim.api.nvim_buf_get_name(args.buf)
+			if name:sub(1, #prefix) ~= prefix then
+				return
+			end
+
+			local ok, lib = pcall(require, "diffview.lib")
+			local view = ok and lib.get_current_view()
+			if not view then
+				return
+			end
+
+			local rel_path = name:sub(#prefix + 1)
+			local cur_file = view.panel and view.panel.cur_file
+			if cur_file and cur_file.path == rel_path then
+				return
+			end
+
+			syncing = true
+			view:set_file_by_path(rel_path, false)
+			vim.schedule(function()
+				syncing = false
+			end)
+		end,
+	})
+end
+
 ---`:ReviewOpen <name>`: open the diff against the review map's recorded
 ---base in diffview.nvim, and populate the quickfix list with its items so
 ---`]q` / `[q` navigation is immediate.
@@ -143,7 +218,13 @@ function M.open(name)
 		return
 	end
 
-	vim.cmd("DiffviewOpen " .. map.base)
+	-- Table form, not string concatenation: `map.base` comes from a JSON
+	-- file on disk, and passing it as a literal Ex-command argument (rather
+	-- than interpolating it into a command string) means a stray `|` or
+	-- other Ex-command metacharacter in it can't be parsed as anything but
+	-- a literal revision argument.
+	vim.cmd({ cmd = "DiffviewOpen", args = { map.base } })
+	attach_diffview_sync(root)
 
 	vim.fn.setqflist({}, " ", { title = "review-handoff: " .. name, items = M.build_qf_items(root, map) })
 	vim.cmd("copen")

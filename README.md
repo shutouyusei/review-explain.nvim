@@ -110,8 +110,9 @@ Defaults, shown with `opts = {}`:
 
 ```lua
 {
-  -- Model passed to `claude -p --model <model>`. nil = claude's own default.
-  model = nil,
+  -- Model passed to `claude -p --model <model>` (an alias like "sonnet",
+  -- "opus", "haiku", or a full model id). nil = claude's own default.
+  model = "sonnet",
 
   -- Cache directory, relative to the resolved project root. Commit this.
   cache_dirname = ".nvim-review",
